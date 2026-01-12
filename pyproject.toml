@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "road-signs-locator"
+version = "0.1.0"
+description = "Locates road signs from GPS traces"
+authors = ["Georg Rösch <georgroesch@gmx.de>"]
+packages = [{ include = "gps_emitter" }, { include = "sign_locator" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+poetry = "2.2.1"
+pandas = "2.3.3"
+matplotlib = "3.10.8"
+geopandas = "1.1.1"
+contextily = "1.7.0"
+pygeohash = "3.2.2"
+OSMPythonTools = "0.3.6"
+scikit-fuzzy = "0.5.0"
+scikit-learn = "1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
