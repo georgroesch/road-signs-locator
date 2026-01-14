@@ -59,7 +59,8 @@ class SignLocator:
                                  center_calc: str = "simple",
                                  min_samples: int = 4,
                                  min_radius: float = 4.0,
-                                 min_confidence: float = 7.0) -> tuple[GeoDataFrame, GeoDataFrame]:
+                                 min_confidence: float = 7.0,
+                                 max_spread: float = 60.0) -> tuple[GeoDataFrame, GeoDataFrame]:
         """
         Calculates potential sign locations from the given dataset based on GPS traces and specified clustering
         methods.
@@ -105,6 +106,10 @@ class SignLocator:
                 The minimum radius (distance) used for clustering. Default is 4.0.
             min_confidence: float, optional
                 Minimum confidence value used to filter centroid calculation results. Default is 7.0.
+                Only relevant for 'simple' method.
+            max_spread: float, optional
+                Maximum allowed spread of the bounding box of a cluster. Default is 60.0.
+                Only relevant for 'k-means' method.
 
         Returns:
             tuple[GeoDataFrame, GeoDataFrame]
@@ -126,7 +131,7 @@ class SignLocator:
         gdf_tiles = self._geohash_gdf(gdf)
 
         if center_calc == "k-means":
-            gdf = self._calc_kmeans_centroids(gdf, min_samples, min_radius)
+            gdf = self._calc_kmeans_centroids(gdf, min_samples, min_radius, max_spread)
         elif center_calc == "DBSCAN":
             gdf = self._calc_dbscan_centroids(gdf, min_samples, min_radius)
         else:
@@ -134,20 +139,21 @@ class SignLocator:
 
         return gdf, gdf_tiles
 
-    def _calc_kmeans_centroids(self, gdf: GeoDataFrame, min_samples: int, min_radius: float) -> GeoDataFrame:
+    def _calc_kmeans_centroids(self, gdf: GeoDataFrame, min_samples: int, min_radius: float,
+                               max_spread: float) -> GeoDataFrame:
 
         gdf = self._collect_cluster_candidates_dbscan(gdf, min_samples, min_radius)
 
         refined = []
         for cluster_id, grp in gdf.groupby("cluster_id"):
-            max_spread = self._cluster_spread_bbox(grp)
+            bbox_spread = self._cluster_spread_bbox(grp)
 
             # k-means only improves results when the spread is high
-            if max_spread > 60:
+            if bbox_spread > max_spread:
                 coords = np.column_stack([grp.geometry.x, grp.geometry.y])
 
                 # num cluster is at least 2 (one more than after dbscan)
-                k = max(2, int(max_spread / 30))
+                k = max(2, int(bbox_spread / (max_spread / 2)))
                 kmeans = KMeans(n_clusters=k, n_init="auto", random_state=42)
                 labels = kmeans.fit_predict(coords)
 

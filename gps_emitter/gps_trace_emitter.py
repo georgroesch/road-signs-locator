@@ -1,3 +1,11 @@
+"""
+Module for generating simulated GPS traces for road signs.
+
+This module provides functions to simulate GPS trace data based on road sign
+attributes such as location, orientation, and other contextual parameters.
+The primary function `emit_traces` processes the input data and outputs
+generated GPS trace points with relevant metadata for analysis and validation.
+"""
 import uuid
 
 import numpy as np
@@ -5,7 +13,34 @@ import pandas as pd
 
 
 def emit_traces(input_df: pd.DataFrame):
-    # we only keep relevant columns
+    """
+    Generates simulated GPS traces for road signs based on their locations, bearings, and other attributes.
+
+    The function processes the input DataFrame by filtering relevant columns, removing rows with missing bearing
+    data, and simulating GPS traces with constant speeds. It creates multiple speed observations per road sign,
+    calculates new GPS positions based on these observations, and separates the resulting GPS trace components
+    (latitude, longitude, confidence, and trace ID). The final DataFrame includes only the necessary columns
+    for further analysis or validation.
+
+    Parameters:
+    input_df (pd.DataFrame): DataFrame containing road sign data. Must include the columns:
+        - latitude
+        - longitude
+        - uuid
+        - stvo_nummer
+        - standort_ausrichtung.
+
+    Returns:
+    pd.DataFrame: DataFrame with the following columns:
+        - uuid (str): Unique identifier for the road sign.
+        - sign_type (Any): Type of the road sign based on the 'stvo_nummer' field.
+        - bearing (float): Bearing of the road sign, representing its orientation.
+        - confidence (float): Confidence value for each GPS trace point.
+        - gps_traces_lat (float): Latitude of the GPS trace point.
+        - gps_traces_lon (float): Longitude of the GPS trace point.
+        - trace_id (Any): Identifier for the trace, representing the group of GPS observations.
+    """
+
     df = input_df[["latitude", "longitude", "uuid", "stvo_nummer", "standort_ausrichtung"]]
 
     # remove rows without bearing as we can't reliably emit traces for those
@@ -21,7 +56,7 @@ def emit_traces(input_df: pd.DataFrame):
     df = df.explode("speed", ignore_index=True)
 
     # we now simulate multiple gps traces based on the original location of the road sign
-    df["bearing"] = df["standort_ausrichtung"] #_sanitize_bearing(df["standort_ausrichtung"])
+    df["bearing"] = df["standort_ausrichtung"]
     df["gps_traces"] = _calc_observation_positions(df["speed"], df["latitude"], df["longitude"], df["bearing"])
 
 
@@ -37,15 +72,6 @@ def emit_traces(input_df: pd.DataFrame):
     # stvo nummer is the sign type; standort_ausrichtung is the bearing of the road sign / trace
     df["sign_type"] = df["stvo_nummer"]
     return df[["uuid", "sign_type", "bearing", "confidence", "gps_traces_lat", "gps_traces_lon", "trace_id"]]
-
-
-def _sanitize_bearing(bearing: pd.Series):
-    mask = bearing.isna()
-    fallback = np.random.uniform(0, 360, size=mask.sum())
-    bearing = bearing.copy()
-    bearing.loc[mask] = fallback
-    return bearing
-
 
 def _set_speed_in_ms(size: int):
     # we assume a max of 120 km/h
@@ -84,11 +110,6 @@ def _confidence_from_distance(dist: float) -> float:
     For now, confidence is modelled as a monotonically decreasing
     function of distance.
     """
-
-    # we assume peak confidence around 15–25 m for sign recognition from a car - standard deviation 5 m
-    # considering motion blur, sign resolution, perspective distortion, sign fully visible, etc.
-    #return np.exp(-((dist - 20) ** 2) / (2 * 5 ** 2))
-
     sigma = 20.0  # controls how fast confidence decays with distance
     return np.exp(-(dist ** 2) / (2 * sigma ** 2))
 
@@ -97,9 +118,9 @@ def _confidence_from_distance(dist: float) -> float:
 def _calc_num_observations(speed: pd.Series, visiable_dist: int = 50, sampling_rate: int = 5,
                            max_obs: int = 25) -> np.ndarray:
     # we assume a sampling rate of 5Hz and a vision of max 50m - depending on environmental conditions
-    # like weather, road shape, urban vs. country side areas, objects etc.
-    # for simplicity those external conditions remain constant
-    # So e.g. for a speed of 10m/s we would have 25 oberservations for a single road sign
+    # like weather, road shape, urban vs. countryside areas, objects, etc.
+    # for simplicity those external conditions remain constant,
+    # so e.g., for a speed of 10m/s we would have 25 observations for a single road sign
     n = visiable_dist // speed * sampling_rate
     n = np.maximum(n, 1)
     return np.minimum(n, max_obs)
