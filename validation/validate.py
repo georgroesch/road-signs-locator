@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib import colors, cm
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from matplotlib_scalebar.scalebar import ScaleBar
 
 
 def plot_geoframes(title: str,
@@ -80,23 +82,28 @@ def plot_geoframes(title: str,
         color="red",
         marker="X",
         markersize=60,
-        zorder=5,
-        label="Road Sign (Ground Truth)"
+        zorder=5
     )
 
     # legend
-    legend_elements = []
+    legend_elements = [Line2D(
+        [0], [0],
+        marker="X",
+        color="red",
+        linestyle="None",
+        markersize=8,
+        label="Road Sign (Ground Truth)"
+    )]
 
-    legend_elements.append(
-        Line2D(
-            [0], [0],
-            marker="X",
-            color="red",
-            linestyle="None",
-            markersize=8,
-            label="Road Sign (Ground Truth)"
+    if tiles is not None:
+        legend_elements.append(
+            Patch(
+                facecolor="none",
+                edgecolor="blue",
+                linewidth=2,
+                label="Geohash Tiles"
+            )
         )
-    )
 
     if single_trace:
         legend_elements.append(
@@ -127,12 +134,12 @@ def plot_geoframes(title: str,
                 )
             )
 
-    ax.legend(handles=legend_elements)
+    ax.legend(handles=legend_elements, loc="upper right")
 
     if single_trace:
         cmap = list(traces.values())[0][1].get("cmap")
 
-        norm = colors.Normalize(vmin=0.0, vmax=1.0)
+        norm = colors.Normalize(vmin=list(traces.values())[0][0]["confidence"].min(), vmax=1.0)
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])
 
@@ -150,6 +157,10 @@ def plot_geoframes(title: str,
     ax.set_ylim(y_center - radius, y_center + radius)
 
     ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik)
+
+    # add scalebar (meters)
+    ax.add_artist(ScaleBar(1, location="lower center"))
+
     ax.set_axis_off()
     ax.set_title(title)
     plt.show()
@@ -181,7 +192,7 @@ def validate_results(gdf_points: gp.GeoDataFrame, gdf_signs: gp.GeoDataFrame, me
 
     validation_df["method"] = method_name
 
-    return validation_df[["method", "distance_to_sign", "is_centroid"]]
+    return validation_df[["method", "distance_to_sign", "is_centroid", "uuid"]]
 
 
 def plot_error_distributions(validation_df: pd.DataFrame):

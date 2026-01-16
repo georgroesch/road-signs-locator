@@ -14,6 +14,8 @@ the intricacies involved in cluster-based issues using geospatial information.
 ## How to Run
 
 1. Install dependencies
+    1. `pip install poetry`
+    2. `poetry install`
 2. Run mapping notebook `mapping.ipynb`
 
 ## Dataset & Preparation
@@ -161,10 +163,13 @@ k.**
 
 The two main problems in our pipeline are basically:
 
-1. Over-clustering of traces (= more clusters than road signs)
+1. Over-clustering of traces (= more clusters than road signs):
+    1. Usually happens when traces of a sign are very scattered so that it is hard to determine a single cluster.
 2. Over-merging of clusters (= fewer clusters than road signs)
+    1. Usually happens when two road signs of the same type and orientation are located close to each other, so that
+       cluster traces are overlapping.
 
-The following table shows how to tweak the parameters to solve those problems for each approach:
+The following table shows how to tweak the parameters to reduce the error caused by those problems:
 
 |             | Over-Clustering                                                     | Over-Merging                                                        |
 |-------------|---------------------------------------------------------------------|---------------------------------------------------------------------|
